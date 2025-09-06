@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { config } from '../config/environment';
+import { prisma } from '../config/database';
+import { isRedisConnected, getRedisClient } from '../config/redis';
 
 const router = Router();
 
@@ -18,19 +20,43 @@ interface HealthCheckResponse {
 // Basic health check endpoint
 router.get('/', async (req: Request, res: Response) => {
   try {
+    // Check database connection
+    let databaseStatus: 'connected' | 'disconnected' | 'error' = 'disconnected';
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      databaseStatus = 'connected';
+    } catch (error) {
+      databaseStatus = 'error';
+    }
+
+    // Check Redis connection
+    let redisStatus: 'connected' | 'disconnected' | 'error' = 'disconnected';
+    try {
+      if (isRedisConnected()) {
+        const redis = getRedisClient();
+        await redis.ping();
+        redisStatus = 'connected';
+      }
+    } catch (error) {
+      redisStatus = 'error';
+    }
+
+    const overallStatus = (databaseStatus === 'connected' && redisStatus === 'connected') ? 'ok' : 'error';
+
     const healthCheck: HealthCheckResponse = {
-      status: 'ok',
+      status: overallStatus,
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       environment: config.nodeEnv,
       version: process.env.npm_package_version || '1.0.0',
       services: {
-        database: 'connected', // Will be updated when we add database connection
-        redis: 'connected', // Will be updated when we add Redis connection
+        database: databaseStatus,
+        redis: redisStatus,
       },
     };
 
-    res.status(200).json(healthCheck);
+    const statusCode = overallStatus === 'ok' ? 200 : 503;
+    res.status(statusCode).json(healthCheck);
   } catch (error) {
     res.status(503).json({
       status: 'error',
@@ -45,8 +71,39 @@ router.get('/detailed', async (req: Request, res: Response) => {
   try {
     const memoryUsage = process.memoryUsage();
     
+    // Check database connection
+    let databaseStatus: 'connected' | 'disconnected' | 'error' = 'disconnected';
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      databaseStatus = 'connected';
+    } catch (error) {
+      databaseStatus = 'error';
+    }
+
+    // Check Redis connection and get stats
+    let redisStatus: 'connected' | 'disconnected' | 'error' = 'disconnected';
+    let redisStats = {};
+    try {
+      if (isRedisConnected()) {
+        const redis = getRedisClient();
+        await redis.ping();
+        redisStatus = 'connected';
+        
+        // Get Redis info
+        const info = await redis.info('memory');
+        const memoryMatch = info.match(/used_memory_human:([^\r\n]+)/);
+        redisStats = {
+          memoryUsage: memoryMatch ? memoryMatch[1].trim() : 'Unknown',
+        };
+      }
+    } catch (error) {
+      redisStatus = 'error';
+    }
+
+    const overallStatus = (databaseStatus === 'connected' && redisStatus === 'connected') ? 'ok' : 'error';
+    
     const detailedHealth = {
-      status: 'ok',
+      status: overallStatus,
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       environment: config.nodeEnv,
@@ -63,12 +120,16 @@ router.get('/detailed', async (req: Request, res: Response) => {
         },
       },
       services: {
-        database: 'connected', // Will be updated when we add database connection
-        redis: 'connected', // Will be updated when we add Redis connection
+        database: databaseStatus,
+        redis: {
+          status: redisStatus,
+          ...redisStats,
+        },
       },
     };
 
-    res.status(200).json(detailedHealth);
+    const statusCode = overallStatus === 'ok' ? 200 : 503;
+    res.status(statusCode).json(detailedHealth);
   } catch (error) {
     res.status(503).json({
       status: 'error',

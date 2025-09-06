@@ -1,6 +1,7 @@
 import app from './app';
 import { config } from './config/environment';
 import { connectDatabase, disconnectDatabase } from './config/database';
+import { connectRedis, disconnectRedis } from './config/redis';
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (error: Error) => {
@@ -22,8 +23,9 @@ const gracefulShutdown = async (signal: string) => {
   server.close(async () => {
     console.log('HTTP server closed.');
     
-    // Disconnect from database
+    // Disconnect from database and Redis
     await disconnectDatabase();
+    await disconnectRedis();
     
     process.exit(0);
   });
@@ -40,6 +42,9 @@ const startServer = async () => {
   try {
     // Connect to database
     await connectDatabase();
+    
+    // Connect to Redis
+    await connectRedis();
     
     // Start server
     const server = app.listen(config.port, () => {
