@@ -1,6 +1,7 @@
-import app from './app';
+import { app, httpServer } from './app';
 import { config } from './config/environment';
 import { connectDatabase, disconnectDatabase } from './config/database';
+import { WebSocketService } from './services/WebSocketService';
 import { connectRedis, disconnectRedis } from './config/redis';
 
 // Handle uncaught exceptions
@@ -19,13 +20,16 @@ process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
 const gracefulShutdown = async (signal: string) => {
   console.log(`Received ${signal}. Starting graceful shutdown...`);
   
+  // Close WebSocket connections
+  const wsService = WebSocketService.getInstance();
+  await wsService.shutdown();
+  
   // Close server
   server.close(async () => {
     console.log('HTTP server closed.');
     
-    // Disconnect from database and Redis
+    // Disconnect from database
     await disconnectDatabase();
-    await disconnectRedis();
     
     process.exit(0);
   });
@@ -47,10 +51,11 @@ const startServer = async () => {
     await connectRedis();
     
     // Start server
-    const server = app.listen(config.port, () => {
+    const server = httpServer.listen(config.port, () => {
       console.log(`🚀 SynergySphere API Server running on port ${config.port}`);
       console.log(`📊 Environment: ${config.nodeEnv}`);
       console.log(`🔗 Health check: http://localhost:${config.port}/health`);
+      console.log(`🔌 WebSocket server initialized`);
     });
 
     return server;

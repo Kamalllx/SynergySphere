@@ -1,4 +1,5 @@
 import express from 'express';
+import { createServer } from 'http';
 import { config } from './config/environment';
 import { connectDatabase } from './config/database';
 import {
@@ -9,10 +10,22 @@ import {
   requestLogger,
 } from './middleware/security';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
-import healthRoutes from './routes/health';
+import { WebSocketService } from './services/WebSocketService';
 
-// Create Express application
+// Import routes
+import healthRoutes from './routes/health';
+import projectRoutes from './routes/projects';
+import taskRoutes from './routes/tasks';
+import messageRoutes from './routes/messages';
+import notificationRoutes from './routes/notifications';
+
+// Create Express application and HTTP server
 const app = express();
+const httpServer = createServer(app);
+
+// Initialize WebSocket service
+const wsService = WebSocketService.getInstance();
+wsService.initialize(httpServer);
 
 // Trust proxy (for rate limiting and IP detection)
 app.set('trust proxy', 1);
@@ -34,6 +47,10 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // API routes
 app.use('/health', healthRoutes);
+app.use('/api/projects', projectRoutes);
+app.use('/api/tasks', taskRoutes);
+app.use('/api/messages', messageRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // API base route
 app.get('/', (req, res) => {
@@ -51,4 +68,5 @@ app.use(notFoundHandler);
 // Error handler (must be last)
 app.use(errorHandler);
 
+export { app, httpServer };
 export default app;
