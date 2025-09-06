@@ -103,7 +103,7 @@ export interface NotificationWithUser extends Notification {
 export interface CreateUserInput {
   email: string;
   fullName?: string;
-  passwordHash: string;
+  password: string;
 }
 
 export interface UpdateUserInput {

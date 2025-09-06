@@ -14,7 +14,7 @@ export class UserModel {
    * Create a new user with hashed password
    */
   static async create(data: CreateUserInput): Promise<User> {
-    const hashedPassword = await bcrypt.hash(data.passwordHash, 12);
+    const hashedPassword = await bcrypt.hash(data.password, 12);
     
     return prisma.user.create({
       data: {

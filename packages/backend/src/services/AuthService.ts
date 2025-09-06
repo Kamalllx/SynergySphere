@@ -72,7 +72,7 @@ export class AuthService {
     const userData: CreateUserInput = {
       email: data.email,
       fullName: data.fullName,
-      passwordHash: data.password, // Will be hashed in UserModel.create
+      password: data.password, // Will be hashed in UserModel.create
     };
 
     const user = await UserModel.create(userData);

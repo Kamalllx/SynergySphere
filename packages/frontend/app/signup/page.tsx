@@ -1,11 +1,55 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { ArrowLeft, Loader2, AlertCircle, CheckCircle } from "lucide-react"
+import { useAuth } from '@/contexts/auth-context'
 
 export default function SignupPage() {
+  const { signup, loading, error, clearError } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [name, setName] = useState('');
+  const [validationError, setValidationError] = useState('');
+
+  useEffect(() => {
+    clearError();
+  }, [clearError]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setValidationError('');
+
+    // Validation
+    if (!name || !email || !password || !confirmPassword) {
+      setValidationError('Please fill in all fields');
+      return;
+    }
+
+    if (!email.includes('@')) {
+      setValidationError('Please enter a valid email address');
+      return;
+    }
+
+    if (password.length < 6) {
+      setValidationError('Password must be at least 6 characters');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setValidationError('Passwords do not match');
+      return;
+    }
+
+    await signup(email, password, name);
+  };
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
