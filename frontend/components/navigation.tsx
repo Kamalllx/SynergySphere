@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Search, Settings, Bell, User } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import { ApiStatus } from "./api-status"
 
 interface NavigationProps {
   currentPage?: string
@@ -46,6 +47,8 @@ function Navigation({
         </div>
 
         <div className="flex items-center gap-4">
+          <ApiStatus />
+          
           {showSearch && (
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
