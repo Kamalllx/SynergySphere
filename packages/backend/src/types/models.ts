@@ -4,15 +4,38 @@ import {
   ProjectMember as PrismaProjectMember,
   Task as PrismaTask,
   Message as PrismaMessage,
-  Notification as PrismaNotification,
-  ProjectMemberRole,
-  TaskStatus,
-  TaskPriority,
-  NotificationType
+  Notification as PrismaNotification
 } from '@prisma/client';
 
-// Export Prisma enums
-export { ProjectMemberRole, TaskStatus, TaskPriority, NotificationType };
+// Define enums based on schema comments
+export enum ProjectMemberRole {
+  OWNER = 'owner',
+  ADMIN = 'admin',
+  MEMBER = 'member',
+  VIEWER = 'viewer'
+}
+
+export enum TaskStatus {
+  TODO = 'todo',
+  IN_PROGRESS = 'in_progress',
+  DONE = 'done',
+  BLOCKED = 'blocked'
+}
+
+export enum TaskPriority {
+  LOW = 1,
+  MEDIUM_LOW = 2,
+  MEDIUM = 3,
+  MEDIUM_HIGH = 4,
+  HIGH = 5
+}
+
+export enum NotificationType {
+  TASK_ASSIGNED = 'task_assigned',
+  TASK_UPDATED = 'task_updated',
+  PROJECT_INVITE = 'project_invite',
+  MESSAGE_MENTION = 'message_mention'
+}
 
 // Base model interfaces
 export interface User extends PrismaUser {}

@@ -61,7 +61,11 @@ const startServer = async () => {
 };
 
 // Start the application
-const server = await startServer();
+let server: any;
+
+(async () => {
+  server = await startServer();
+})();
 
 // Handle shutdown signals
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
