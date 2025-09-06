@@ -1,248 +1,289 @@
-import { Router } from 'express';
-import { body, validationResult } from 'express-validator';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
-import { config } from '../config/environment';
+import { Router, Request, Response } from 'express';
+import { AuthService } from '../services/AuthService';
 import { authenticate } from '../middleware/auth';
+import { validate } from '../middleware/validation';
+import { asyncHandler } from '../utils/asyncHandler';
+import { AppError } from '../middleware/errorHandler';
+import {
+  registerSchema,
+  loginSchema,
+  refreshTokenSchema,
+  passwordResetSchema,
+  passwordResetConfirmSchema,
+  changePasswordSchema,
+  updateProfileSchema,
+  deactivateAccountSchema,
+} from '../validation/authSchemas';
 
 const router = Router();
-const prisma = new PrismaClient();
+const authService = new AuthService();
 
-// JWT token generation
-const generateTokens = (userId: string) => {
-  const accessToken = jwt.sign(
-    { userId },
-    config.jwtSecret || 'default-secret',
-    { expiresIn: '1h' }
-  );
-  
-  const refreshToken = jwt.sign(
-    { userId },
-    config.jwtRefreshSecret || 'default-refresh-secret',
-    { expiresIn: '7d' }
-  );
-  
-  return { accessToken, refreshToken };
-};
+/**
+ * @route   POST /api/auth/register
+ * @desc    Register a new user
+ * @access  Public
+ */
+router.post('/register', 
+  validate(registerSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { user, tokens } = await authService.register(req.body);
 
-// Register new user
-router.post('/register',
-  [
-    body('email').isEmail().normalizeEmail(),
-    body('password').isLength({ min: 6 }),
-    body('name').trim().notEmpty(),
-  ],
-  async (req, res) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ 
-          success: false,
-          errors: errors.array() 
-        });
-      }
-
-      const { email, password, name } = req.body;
-
-      // Check if user exists
-      const existingUser = await prisma.user.findUnique({
-        where: { email }
-      });
-
-      if (existingUser) {
-        return res.status(400).json({
-          success: false,
-          message: 'User already exists'
-        });
-      }
-
-      // Hash password
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      // Create user
-      const user = await prisma.user.create({
-        data: {
-          email,
-          name,
-          password: hashedPassword,
+    res.status(201).json({
+      success: true,
+      message: 'User registered successfully',
+      data: {
+        user: {
+          id: user.id,
+          email: user.email,
+          fullName: user.fullName,
+          isActive: user.isActive,
+          createdAt: user.createdAt,
         },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          avatar: true,
-          createdAt: true,
-        }
-      });
-
-      // Generate tokens
-      const { accessToken, refreshToken } = generateTokens(user.id);
-
-      res.status(201).json({
-        success: true,
-        data: {
-          user,
-          token: accessToken,
-          refreshToken,
-        }
-      });
-    } catch (error) {
-      console.error('Register error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to register user'
-      });
-    }
-  }
-);
-
-// Login
-router.post('/login',
-  [
-    body('email').isEmail().normalizeEmail(),
-    body('password').notEmpty(),
-  ],
-  async (req, res) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ 
-          success: false,
-          errors: errors.array() 
-        });
-      }
-
-      const { email, password } = req.body;
-
-      // Find user
-      const user = await prisma.user.findUnique({
-        where: { email },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          avatar: true,
-          password: true,
-          createdAt: true,
-        }
-      });
-
-      if (!user) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid credentials'
-        });
-      }
-
-      // Verify password
-      const isValidPassword = await bcrypt.compare(password, user.password);
-      if (!isValidPassword) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid credentials'
-        });
-      }
-
-      // Generate tokens
-      const { accessToken, refreshToken } = generateTokens(user.id);
-
-      // Remove password from response
-      const { password: _, ...userWithoutPassword } = user;
-
-      res.json({
-        success: true,
-        data: {
-          user: userWithoutPassword,
-          token: accessToken,
-          refreshToken,
-        }
-      });
-    } catch (error) {
-      console.error('Login error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to login'
-      });
-    }
-  }
-);
-
-// Get current user
-router.get('/me', authenticate, async (req, res) => {
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.user?.id },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        avatar: true,
-        createdAt: true,
-        updatedAt: true,
-      }
+        tokens,
+      },
     });
+  })
+);
+
+/**
+ * @route   POST /api/auth/login
+ * @desc    Login user
+ * @access  Public
+ */
+router.post('/login',
+  validate(loginSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { user, tokens } = await authService.login(req.body);
+
+    res.json({
+      success: true,
+      message: 'Login successful',
+      data: {
+        user: {
+          id: user.id,
+          email: user.email,
+          fullName: user.fullName,
+          isActive: user.isActive,
+          createdAt: user.createdAt,
+        },
+        tokens,
+      },
+    });
+  })
+);
+
+/**
+ * @route   POST /api/auth/refresh
+ * @desc    Refresh access token
+ * @access  Public
+ */
+router.post('/refresh',
+  validate(refreshTokenSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { refreshToken } = req.body;
+    const tokens = await authService.refreshToken(refreshToken);
+
+    res.json({
+      success: true,
+      message: 'Token refreshed successfully',
+      data: { tokens },
+    });
+  })
+);
+
+/**
+ * @route   POST /api/auth/logout
+ * @desc    Logout user
+ * @access  Public
+ */
+router.post('/logout',
+  validate(refreshTokenSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { refreshToken } = req.body;
+    await authService.logout(refreshToken);
+
+    res.json({
+      success: true,
+      message: 'Logout successful',
+    });
+  })
+);
+
+/**
+ * @route   POST /api/auth/logout-all
+ * @desc    Logout user from all devices
+ * @access  Private
+ */
+router.post('/logout-all',
+  authenticate,
+  asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.id;
+    await authService.logoutAllDevices(userId);
+
+    res.json({
+      success: true,
+      message: 'Logged out from all devices',
+    });
+  })
+);
+
+/**
+ * @route   POST /api/auth/password-reset
+ * @desc    Request password reset
+ * @access  Public
+ */
+router.post('/password-reset',
+  validate(passwordResetSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    await authService.requestPasswordReset(req.body);
+
+    res.json({
+      success: true,
+      message: 'Password reset email sent if account exists',
+    });
+  })
+);
+
+/**
+ * @route   POST /api/auth/password-reset/confirm
+ * @desc    Confirm password reset
+ * @access  Public
+ */
+router.post('/password-reset/confirm',
+  validate(passwordResetConfirmSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    await authService.confirmPasswordReset(req.body);
+
+    res.json({
+      success: true,
+      message: 'Password reset successfully',
+    });
+  })
+);
+
+/**
+ * @route   POST /api/auth/change-password
+ * @desc    Change password
+ * @access  Private
+ */
+router.post('/change-password',
+  authenticate,
+  validate(changePasswordSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.id;
+    const { currentPassword, newPassword } = req.body;
+
+    await authService.changePassword(userId, currentPassword, newPassword);
+
+    res.json({
+      success: true,
+      message: 'Password changed successfully',
+    });
+  })
+);
+
+/**
+ * @route   GET /api/auth/me
+ * @desc    Get current user profile
+ * @access  Private
+ */
+router.get('/me',
+  authenticate,
+  asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.id;
+    const user = await authService.getUserProfile(userId);
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
+      throw new AppError('User not found', 404);
     }
 
     res.json({
       success: true,
-      data: user
+      data: {
+        user: {
+          id: user.id,
+          email: user.email,
+          fullName: user.fullName,
+          isActive: user.isActive,
+          preferences: user.preferences,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+          ownedProjects: user.ownedProjects?.length || 0,
+          projectMembers: user.projectMembers?.length || 0,
+          createdTasks: user.createdTasks?.length || 0,
+          unreadNotifications: user.notifications?.length || 0,
+        },
+      },
     });
-  } catch (error) {
-    console.error('Get user error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to get user'
-    });
-  }
-});
-
-// Refresh token
-router.post('/refresh',
-  [body('refreshToken').notEmpty()],
-  async (req, res) => {
-    try {
-      const { refreshToken } = req.body;
-
-      // Verify refresh token
-      const decoded = jwt.verify(
-        refreshToken,
-        config.jwtRefreshSecret || 'default-refresh-secret'
-      ) as { userId: string };
-
-      // Generate new tokens
-      const { accessToken, refreshToken: newRefreshToken } = generateTokens(decoded.userId);
-
-      res.json({
-        success: true,
-        data: {
-          token: accessToken,
-          refreshToken: newRefreshToken,
-        }
-      });
-    } catch (error) {
-      console.error('Refresh token error:', error);
-      res.status(401).json({
-        success: false,
-        message: 'Invalid refresh token'
-      });
-    }
-  }
+  })
 );
 
-// Logout (optional - can be handled client-side)
-router.post('/logout', authenticate, (req, res) => {
-  // In a production app, you might want to blacklist the token
-  res.json({
-    success: true,
-    message: 'Logged out successfully'
-  });
-});
+/**
+ * @route   PUT /api/auth/me
+ * @desc    Update user profile
+ * @access  Private
+ */
+router.put('/me',
+  authenticate,
+  validate(updateProfileSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.id;
+    const user = await authService.updateUserProfile(userId, req.body);
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: {
+        user: {
+          id: user.id,
+          email: user.email,
+          fullName: user.fullName,
+          isActive: user.isActive,
+          preferences: user.preferences,
+          updatedAt: user.updatedAt,
+        },
+      },
+    });
+  })
+);
+
+/**
+ * @route   POST /api/auth/deactivate
+ * @desc    Deactivate user account
+ * @access  Private
+ */
+router.post('/deactivate',
+  authenticate,
+  validate(deactivateAccountSchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.id;
+    const { password } = req.body;
+
+    await authService.deactivateAccount(userId, password);
+
+    res.json({
+      success: true,
+      message: 'Account deactivated successfully',
+    });
+  })
+);
+
+/**
+ * @route   GET /api/auth/verify
+ * @desc    Verify token (for testing)
+ * @access  Private
+ */
+router.get('/verify',
+  authenticate,
+  asyncHandler(async (req: Request, res: Response) => {
+    res.json({
+      success: true,
+      message: 'Token is valid',
+      data: {
+        user: req.user,
+      },
+    });
+  })
+);
 
 export default router;

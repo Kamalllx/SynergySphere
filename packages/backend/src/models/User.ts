@@ -18,8 +18,11 @@ export class UserModel {
     
     return prisma.user.create({
       data: {
-        ...data,
+        email: data.email,
+        fullName: data.fullName || null,
         passwordHash: hashedPassword,
+        isActive: true,
+        preferences: {},
       },
     });
   }
