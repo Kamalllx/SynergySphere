@@ -49,8 +49,8 @@ export class NotificationModel {
       where.userId = filters.userId;
     }
 
-    if (filters.type) {
-      where.type = filters.type;
+    if (filters.entityType) {
+      where.entityType = filters.entityType;
     }
 
     if (filters.isRead !== undefined) {
@@ -185,14 +185,16 @@ export class NotificationModel {
         where: { userId, isRead: false },
       }),
       prisma.notification.groupBy({
-        by: ['type'],
+        by: ['entityType'],
         where: { userId },
-        _count: { type: true },
+        _count: { entityType: true },
       }),
     ]);
 
     const typeCounts = byType.reduce((acc, stat) => {
-      acc[stat.type] = stat._count.type;
+      if (stat.entityType) {
+        acc[stat.entityType] = stat._count.entityType;
+      }
       return acc;
     }, {} as Record<string, number>);
 
@@ -215,14 +217,16 @@ export class NotificationModel {
   ): Promise<Notification> {
     return this.create({
       userId,
-      type: NotificationType.TASK_ASSIGNED,
-      title: 'New Task Assignment',
-      message: `You have been assigned to task "${taskTitle}" in project "${projectName}"`,
-      data: {
+      entityType: NotificationType.TASK_ASSIGNED,
+      entityId: taskId,
+      projectId,
+      payload: {
         taskId,
         projectId,
         taskTitle,
         projectName,
+        title: 'New Task Assignment',
+        message: `You have been assigned to task "${taskTitle}" in project "${projectName}"`,
       },
     });
   }
@@ -246,16 +250,18 @@ export class NotificationModel {
 
     return this.create({
       userId,
-      type: NotificationType.TASK_DUE,
-      title,
-      message,
-      data: {
+      entityType: NotificationType.TASK_DUE,
+      entityId: taskId,
+      projectId,
+      payload: {
         taskId,
         projectId,
         taskTitle,
         projectName,
         dueDate: dueDate.toISOString(),
         isOverdue,
+        title,
+        message,
       },
     });
   }
@@ -273,15 +279,17 @@ export class NotificationModel {
   ): Promise<Notification> {
     return this.create({
       userId,
-      type: NotificationType.MENTION,
-      title: 'You were mentioned',
-      message: `${mentionedByName} mentioned you in project "${projectName}"`,
-      data: {
+      entityType: NotificationType.MENTION,
+      entityId: messageId,
+      projectId,
+      payload: {
         messageId,
         projectId,
         projectName,
         mentionedBy,
         mentionedByName,
+        title: 'You were mentioned',
+        message: `${mentionedByName} mentioned you in project "${projectName}"`,
       },
     });
   }
@@ -298,13 +306,14 @@ export class NotificationModel {
   ): Promise<Notification> {
     return this.create({
       userId,
-      type: NotificationType.PROJECT_UPDATE,
-      title: 'Project Update',
-      message: `${updateMessage} in project "${projectName}"`,
-      data: {
+      entityType: NotificationType.PROJECT_UPDATE,
+      projectId,
+      payload: {
         projectId,
         projectName,
         updateType,
+        title: 'Project Update',
+        message: `${updateMessage} in project "${projectName}"`,
       },
     });
   }

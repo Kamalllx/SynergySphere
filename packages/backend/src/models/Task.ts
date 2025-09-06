@@ -40,20 +40,22 @@ export class TaskModel {
             name: true,
           },
         },
-        assignee: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            avatar: true,
+        assignments: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                fullName: true,
+                email: true,
+              },
+            },
           },
         },
         creator: {
           select: {
             id: true,
-            name: true,
+            fullName: true,
             email: true,
-            avatar: true,
           },
         },
       },
@@ -70,9 +72,6 @@ export class TaskModel {
       where.projectId = filters.projectId;
     }
 
-    if (filters.assigneeId) {
-      where.assigneeId = filters.assigneeId;
-    }
 
     if (filters.creatorId) {
       where.creatorId = filters.creatorId;
@@ -102,18 +101,20 @@ export class TaskModel {
             name: true,
           },
         },
-        assignee: {
-          select: {
-            id: true,
-            name: true,
-            avatar: true,
+        assignments: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                fullName: true,
+              },
+            },
           },
         },
         creator: {
           select: {
             id: true,
-            name: true,
-            avatar: true,
+            fullName: true,
           },
         },
       },
@@ -131,12 +132,6 @@ export class TaskModel {
   static async update(id: string, data: UpdateTaskInput): Promise<Task> {
     const updateData: Prisma.TaskUpdateInput = { ...data };
 
-    // Set completedAt when status changes to DONE
-    if (data.status === TaskStatus.DONE) {
-      updateData.completedAt = new Date();
-    } else if (data.status) {
-      updateData.completedAt = null;
-    }
 
     return prisma.task.update({
       where: { id },
@@ -154,20 +149,26 @@ export class TaskModel {
   /**
    * Assign task to user
    */
-  static async assign(id: string, assigneeId: string): Promise<Task> {
-    return prisma.task.update({
-      where: { id },
-      data: { assigneeId },
+  static async assign(id: string, assigneeId: string): Promise<any> {
+    return prisma.taskAssignment.create({
+      data: {
+        taskId: id,
+        userId: assigneeId,
+      },
     });
   }
 
   /**
    * Unassign task
    */
-  static async unassign(id: string): Promise<Task> {
-    return prisma.task.update({
-      where: { id },
-      data: { assigneeId: null },
+  static async unassign(id: string, assigneeId: string): Promise<any> {
+    return prisma.taskAssignment.delete({
+      where: {
+        taskId_userId: {
+          taskId: id,
+          userId: assigneeId,
+        },
+      },
     });
   }
 
@@ -202,19 +203,21 @@ export class TaskModel {
             name: true,
           },
         },
-        assignee: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            avatar: true,
+        assignments: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                fullName: true,
+                email: true,
+              },
+            },
           },
         },
         creator: {
           select: {
             id: true,
-            name: true,
-            avatar: true,
+            fullName: true,
           },
         },
       },
@@ -250,19 +253,21 @@ export class TaskModel {
             name: true,
           },
         },
-        assignee: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            avatar: true,
+        assignments: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                fullName: true,
+                email: true,
+              },
+            },
           },
         },
         creator: {
           select: {
             id: true,
-            name: true,
-            avatar: true,
+            fullName: true,
           },
         },
       },
@@ -286,9 +291,9 @@ export class TaskModel {
         _count: { priority: true },
       }),
       prisma.task.groupBy({
-        by: ['assigneeId'],
-        where: { projectId, assigneeId: { not: null } },
-        _count: { assigneeId: true },
+        by: ['projectId'],
+        where: { projectId },
+        _count: { projectId: true },
       }),
     ]);
 
@@ -298,7 +303,9 @@ export class TaskModel {
     }, {} as Record<string, number>);
 
     const priorityCounts = priorityStats.reduce((acc, stat) => {
-      acc[stat.priority] = stat._count.priority;
+      if (stat.priority !== null) {
+        acc[stat.priority] = stat._count.priority;
+      }
       return acc;
     }, {} as Record<string, number>);
 
@@ -325,7 +332,13 @@ export class TaskModel {
     const [assignedStats, createdStats] = await Promise.all([
       prisma.task.groupBy({
         by: ['status'],
-        where: { assigneeId: userId },
+        where: {
+          assignments: {
+            some: {
+              userId,
+            },
+          },
+        },
         _count: { status: true },
       }),
       prisma.task.count({
@@ -334,7 +347,9 @@ export class TaskModel {
     ]);
 
     const statusCounts = assignedStats.reduce((acc, stat) => {
-      acc[stat.status] = stat._count.status;
+      if (stat._count && stat._count.status) {
+        acc[stat.status] = stat._count.status;
+      }
       return acc;
     }, {} as Record<string, number>);
 

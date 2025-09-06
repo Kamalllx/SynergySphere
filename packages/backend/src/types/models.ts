@@ -32,9 +32,9 @@ export enum TaskPriority {
 
 export enum NotificationType {
   TASK_ASSIGNED = 'task_assigned',
-  TASK_UPDATED = 'task_updated',
-  PROJECT_INVITE = 'project_invite',
-  MESSAGE_MENTION = 'message_mention'
+  TASK_DUE = 'task_due',
+  MENTION = 'mention',
+  PROJECT_UPDATE = 'project_update'
 }
 
 // Base model interfaces
@@ -102,34 +102,28 @@ export interface NotificationWithUser extends Notification {
 // Input types for creating/updating models
 export interface CreateUserInput {
   email: string;
-  name: string;
-  password: string;
-  avatar?: string;
+  fullName?: string;
+  passwordHash: string;
 }
 
 export interface UpdateUserInput {
-  name?: string;
-  avatar?: string;
-  emailNotifications?: boolean;
-  pushNotifications?: boolean;
-  taskAssignments?: boolean;
-  projectUpdates?: boolean;
-  mentions?: boolean;
+  fullName?: string;
+  isActive?: boolean;
+  preferences?: Record<string, any>;
 }
 
 export interface CreateProjectInput {
   name: string;
+  slug: string;
   description?: string;
   ownerId: string;
-  isPublic?: boolean;
-  allowMemberInvites?: boolean;
 }
 
 export interface UpdateProjectInput {
   name?: string;
+  slug?: string;
   description?: string;
-  isPublic?: boolean;
-  allowMemberInvites?: boolean;
+  status?: string;
 }
 
 export interface CreateTaskInput {
@@ -138,9 +132,9 @@ export interface CreateTaskInput {
   status?: TaskStatus;
   priority?: TaskPriority;
   projectId: string;
-  assigneeId?: string;
   creatorId: string;
   dueDate?: Date;
+  estimateMinutes?: number;
 }
 
 export interface UpdateTaskInput {
@@ -148,46 +142,44 @@ export interface UpdateTaskInput {
   description?: string;
   status?: TaskStatus;
   priority?: TaskPriority;
-  assigneeId?: string;
   dueDate?: Date;
+  estimateMinutes?: number;
 }
 
 export interface CreateMessageInput {
-  content: string;
+  body: string;
   projectId: string;
   authorId: string;
   parentId?: string;
-  mentions?: string[];
+  taskId?: string;
 }
 
 export interface UpdateMessageInput {
-  content?: string;
-  mentions?: string[];
+  body?: string;
 }
 
 export interface CreateNotificationInput {
   userId: string;
-  type: NotificationType;
-  title: string;
-  message: string;
-  data?: Record<string, any>;
+  projectId?: string;
+  entityType?: string;
+  entityId?: string;
+  payload?: Record<string, any>;
 }
 
 // Query filter types
 export interface UserFilters {
   email?: string;
-  name?: string;
+  fullName?: string;
 }
 
 export interface ProjectFilters {
   ownerId?: string;
-  isPublic?: boolean;
+  status?: string;
   search?: string;
 }
 
 export interface TaskFilters {
   projectId?: string;
-  assigneeId?: string;
   creatorId?: string;
   status?: TaskStatus;
   priority?: TaskPriority;
@@ -202,6 +194,6 @@ export interface MessageFilters {
 
 export interface NotificationFilters {
   userId?: string;
-  type?: NotificationType;
+  entityType?: string;
   isRead?: boolean;
 }

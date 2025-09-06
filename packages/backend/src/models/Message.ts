@@ -36,9 +36,8 @@ export class MessageModel {
         author: {
           select: {
             id: true,
-            name: true,
+            fullName: true,
             email: true,
-            avatar: true,
           },
         },
         replies: {
@@ -46,8 +45,7 @@ export class MessageModel {
             author: {
               select: {
                 id: true,
-                name: true,
-                avatar: true,
+                fullName: true,
               },
             },
           },
@@ -58,8 +56,7 @@ export class MessageModel {
             author: {
               select: {
                 id: true,
-                name: true,
-                avatar: true,
+                fullName: true,
               },
             },
           },
@@ -98,8 +95,7 @@ export class MessageModel {
         author: {
           select: {
             id: true,
-            name: true,
-            avatar: true,
+            fullName: true,
           },
         },
         replies: {
@@ -107,8 +103,7 @@ export class MessageModel {
             author: {
               select: {
                 id: true,
-                name: true,
-                avatar: true,
+                fullName: true,
               },
             },
           },
@@ -152,8 +147,7 @@ export class MessageModel {
         author: {
           select: {
             id: true,
-            name: true,
-            avatar: true,
+            fullName: true,
           },
         },
       },
@@ -169,7 +163,6 @@ export class MessageModel {
       where: { id },
       data: {
         ...data,
-        editedAt: new Date(),
       },
     });
   }
@@ -197,7 +190,7 @@ export class MessageModel {
     return prisma.message.findMany({
       where: {
         projectId,
-        content: {
+        body: {
           contains: query,
           mode: 'insensitive',
         },
@@ -206,19 +199,17 @@ export class MessageModel {
         author: {
           select: {
             id: true,
-            name: true,
-            avatar: true,
+            fullName: true,
           },
         },
         parent: {
           select: {
             id: true,
-            content: true,
+            body: true,
             author: {
               select: {
                 id: true,
-                name: true,
-                avatar: true,
+                fullName: true,
               },
             },
           },
@@ -230,42 +221,6 @@ export class MessageModel {
     });
   }
 
-  /**
-   * Get messages with mentions for a user
-   */
-  static async findMentions(
-    userId: string,
-    page: number = 1,
-    limit: number = 20
-  ): Promise<any[]> {
-    const skip = (page - 1) * limit;
-
-    return prisma.message.findMany({
-      where: {
-        mentions: {
-          has: userId,
-        },
-      },
-      include: {
-        author: {
-          select: {
-            id: true,
-            name: true,
-            avatar: true,
-          },
-        },
-        project: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-      skip,
-      take: limit,
-    });
-  }
 
   /**
    * Get message count for project
@@ -289,8 +244,7 @@ export class MessageModel {
         author: {
           select: {
             id: true,
-            name: true,
-            avatar: true,
+            fullName: true,
           },
         },
       },
@@ -299,22 +253,6 @@ export class MessageModel {
     });
   }
 
-  /**
-   * Extract mentions from message content
-   */
-  static extractMentions(content: string): string[] {
-    const mentionRegex = /@(\w+)/g;
-    const mentions: string[] = [];
-    let match;
-
-    while ((match = mentionRegex.exec(content)) !== null) {
-      if (match[1]) {
-        mentions.push(match[1]);
-      }
-    }
-
-    return [...new Set(mentions)]; // Remove duplicates
-  }
 
   /**
    * Get message statistics for project

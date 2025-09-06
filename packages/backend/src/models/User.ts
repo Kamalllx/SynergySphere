@@ -14,12 +14,12 @@ export class UserModel {
    * Create a new user with hashed password
    */
   static async create(data: CreateUserInput): Promise<User> {
-    const hashedPassword = await bcrypt.hash(data.password, 12);
+    const hashedPassword = await bcrypt.hash(data.passwordHash, 12);
     
     return prisma.user.create({
       data: {
         ...data,
-        password: hashedPassword,
+        passwordHash: hashedPassword,
       },
     });
   }
@@ -56,7 +56,11 @@ export class UserModel {
           },
         },
         createdTasks: true,
-        assignedTasks: true,
+        taskAssignments: {
+          include: {
+            task: true,
+          },
+        },
         notifications: {
           where: { isRead: false },
           orderBy: { createdAt: 'desc' },
@@ -76,8 +80,8 @@ export class UserModel {
       where.email = { contains: filters.email, mode: 'insensitive' };
     }
 
-    if (filters.name) {
-      where.name = { contains: filters.name, mode: 'insensitive' };
+    if (filters.fullName) {
+      where.fullName = { contains: filters.fullName, mode: 'insensitive' };
     }
 
     return prisma.user.findMany({
@@ -102,7 +106,7 @@ export class UserModel {
   static async updateLastLogin(id: string): Promise<User> {
     return prisma.user.update({
       where: { id },
-      data: { lastLoginAt: new Date() },
+      data: { updatedAt: new Date() },
     });
   }
 
@@ -110,7 +114,7 @@ export class UserModel {
    * Verify password
    */
   static async verifyPassword(user: User, password: string): Promise<boolean> {
-    return bcrypt.compare(password, user.password);
+    return bcrypt.compare(password, user.passwordHash);
   }
 
   /**
@@ -121,7 +125,7 @@ export class UserModel {
     
     return prisma.user.update({
       where: { id },
-      data: { password: hashedPassword },
+      data: { passwordHash: hashedPassword },
     });
   }
 
@@ -155,8 +159,8 @@ export class UserModel {
       where.email = { contains: filters.email, mode: 'insensitive' };
     }
 
-    if (filters.name) {
-      where.name = { contains: filters.name, mode: 'insensitive' };
+    if (filters.fullName) {
+      where.fullName = { contains: filters.fullName, mode: 'insensitive' };
     }
 
     return prisma.user.count({ where });

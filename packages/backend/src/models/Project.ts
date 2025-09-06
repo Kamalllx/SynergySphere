@@ -52,9 +52,8 @@ export class ProjectModel {
         owner: {
           select: {
             id: true,
-            name: true,
+            fullName: true,
             email: true,
-            avatar: true,
           },
         },
         members: {
@@ -62,9 +61,8 @@ export class ProjectModel {
             user: {
               select: {
                 id: true,
-                name: true,
+                fullName: true,
                 email: true,
-                avatar: true,
               },
             },
           },
@@ -72,18 +70,20 @@ export class ProjectModel {
         },
         tasks: {
           include: {
-            assignee: {
-              select: {
-                id: true,
-                name: true,
-                avatar: true,
+            assignments: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    fullName: true,
+                  },
+                },
               },
             },
             creator: {
               select: {
                 id: true,
-                name: true,
-                avatar: true,
+                fullName: true,
               },
             },
           },
@@ -94,8 +94,7 @@ export class ProjectModel {
             author: {
               select: {
                 id: true,
-                name: true,
-                avatar: true,
+                fullName: true,
               },
             },
           },
@@ -125,8 +124,8 @@ export class ProjectModel {
       ];
     }
 
-    if (filters.isPublic !== undefined) {
-      where.isPublic = filters.isPublic;
+    if (filters.status) {
+      where.status = filters.status;
     }
 
     return prisma.project.findMany({
@@ -135,9 +134,8 @@ export class ProjectModel {
         owner: {
           select: {
             id: true,
-            name: true,
+            fullName: true,
             email: true,
-            avatar: true,
           },
         },
         members: {
@@ -145,8 +143,7 @@ export class ProjectModel {
             user: {
               select: {
                 id: true,
-                name: true,
-                avatar: true,
+                fullName: true,
               },
             },
           },
@@ -204,9 +201,9 @@ export class ProjectModel {
   static async removeMember(projectId: string, userId: string): Promise<ProjectMember> {
     return prisma.projectMember.delete({
       where: {
-        userId_projectId: {
-          userId,
+        projectId_userId: {
           projectId,
+          userId,
         },
       },
     });
@@ -222,9 +219,9 @@ export class ProjectModel {
   ): Promise<ProjectMember> {
     return prisma.projectMember.update({
       where: {
-        userId_projectId: {
-          userId,
+        projectId_userId: {
           projectId,
+          userId,
         },
       },
       data: { role },
@@ -237,9 +234,9 @@ export class ProjectModel {
   static async isMember(projectId: string, userId: string): Promise<boolean> {
     const member = await prisma.projectMember.findUnique({
       where: {
-        userId_projectId: {
-          userId,
+        projectId_userId: {
           projectId,
+          userId,
         },
       },
     });
@@ -252,14 +249,14 @@ export class ProjectModel {
   static async getUserRole(projectId: string, userId: string): Promise<ProjectMemberRole | null> {
     const member = await prisma.projectMember.findUnique({
       where: {
-        userId_projectId: {
-          userId,
+        projectId_userId: {
           projectId,
+          userId,
         },
       },
       select: { role: true },
     });
-    return member?.role || null;
+    return (member?.role as ProjectMemberRole) || null;
   }
 
   /**
