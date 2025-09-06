@@ -14,6 +14,7 @@ import { WebSocketService } from './services/WebSocketService';
 
 // Import routes
 import healthRoutes from './routes/health';
+import authRoutes from './routes/auth';
 import projectRoutes from './routes/projects';
 import taskRoutes from './routes/tasks';
 import messageRoutes from './routes/messages';
@@ -47,6 +48,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // API routes
 app.use('/health', healthRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/messages', messageRoutes);
